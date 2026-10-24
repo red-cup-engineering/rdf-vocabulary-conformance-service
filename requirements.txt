@@ -1,0 +1,13 @@
+# Exact pins, as resolved with Python 3.12.3. Mirrors [project].dependencies in pyproject.toml.
+rdflib==7.6.0
+pyshacl==0.40.1
+PyLD==3.3.0
+owlrl==7.6.2
+prettytable==3.18.0
+wcwidth==0.9.4
+pyparsing==3.3.3
+packaging==26.3
+lxml==6.1.3
+html5rdf==1.2.1
+frozendict==2.4.7
+cachetools==7.2.4

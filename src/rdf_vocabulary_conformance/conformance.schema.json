@@ -1,0 +1,306 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://561.group/schema/rdf-vocabulary-conformance/conformance.schema.json",
+  "title": "RDF vocabulary conformance configuration",
+  "description": "Data-only configuration for rdf-vocabulary-conformance-service. A Science repository holds one of these (conventionally ontology/conformance.json) next to its vocabulary and records. Every path is relative to the repository root, uses forward slashes, and contains no '..' segment. Every IRI is absolute. A section that is absent switches off the checks that need it.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["formatVersion"],
+  "minProperties": 2,
+  "properties": {
+    "$schema": { "type": "string" },
+    "formatVersion": { "const": 1 },
+    "parse": {
+      "type": "object",
+      "additionalProperties": false,
+      "minProperties": 1,
+      "description": "Every matched file must parse.",
+      "properties": {
+        "rdf": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["glob"],
+          "description": "RDF files (.ttl, .nt, .n3, .rdf, .xml, .owl) matching the glob must each parse to a non-empty graph.",
+          "properties": {
+            "glob": { "$ref": "#/$defs/glob" },
+            "minimum": { "type": "integer", "minimum": 0, "description": "At least this many files must match." }
+          }
+        },
+        "json": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["glob"],
+          "description": "JSON or JSON-LD files matching the glob must each be a JSON object.",
+          "properties": {
+            "glob": { "$ref": "#/$defs/glob" },
+            "minimum": { "type": "integer", "minimum": 0 },
+            "exactly": {
+              "type": "array",
+              "uniqueItems": true,
+              "items": { "$ref": "#/$defs/path" },
+              "description": "The matched set must equal exactly these paths."
+            }
+          }
+        }
+      }
+    },
+    "vocabulary": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["files"],
+      "description": "The vocabulary under test.",
+      "properties": {
+        "files": {
+          "type": "array",
+          "minItems": 1,
+          "uniqueItems": true,
+          "items": { "$ref": "#/$defs/path" },
+          "description": "RDF files merged into the vocabulary graph."
+        },
+        "namespace": {
+          "$ref": "#/$defs/iri",
+          "description": "The namespace the vocabulary owns. Classes and properties declared in it must be documented; record top types must live in it."
+        },
+        "declaredTermsAtLeast": {
+          "type": "integer",
+          "minimum": 0,
+          "description": "At least this many owl:Class, owl:ObjectProperty and owl:DatatypeProperty terms are declared in the namespace."
+        },
+        "ontology": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["iri"],
+          "description": "The expected owl:Ontology header.",
+          "properties": {
+            "iri": { "$ref": "#/$defs/iri" },
+            "versionIri": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 500,
+              "description": "Expected owl:versionIRI. '{iri}' stands for ontology.iri and '{version}' for the value read by versionInfoFrom."
+            },
+            "imports": { "type": "array", "uniqueItems": true, "items": { "$ref": "#/$defs/iri" }, "description": "owl:imports that must be declared." },
+            "license": { "$ref": "#/$defs/iri", "description": "Expected dcterms:license." },
+            "versionInfoFrom": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": ["file", "pattern"],
+              "description": "owl:versionInfo must equal the first capture group of this regular expression (multiline) over the named file.",
+              "properties": {
+                "file": { "$ref": "#/$defs/path" },
+                "pattern": { "$ref": "#/$defs/regex" }
+              }
+            }
+          }
+        }
+      }
+    },
+    "root": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["ontology"],
+      "description": "The vendored root ontology the vocabulary is rooted in, and the shapes that judge ontology metadata.",
+      "properties": {
+        "ontology": { "$ref": "#/$defs/path" },
+        "shapes": { "$ref": "#/$defs/path", "description": "Root-owned SHACL shapes for ontology metadata." },
+        "iri": { "$ref": "#/$defs/iri", "description": "The root must declare itself an owl:Ontology at this IRI." },
+        "recordClass": { "$ref": "#/$defs/iri", "description": "The root must declare this owl:Class; every record kind must be a subclass of it." },
+        "validate": {
+          "type": "array",
+          "uniqueItems": true,
+          "items": { "$ref": "#/$defs/path" },
+          "description": "RDF files that, each merged with the root ontology, must conform to the root shapes."
+        }
+      }
+    },
+    "skos": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["scheme"],
+      "description": "SKOS discipline for the vocabulary graph.",
+      "properties": {
+        "scheme": { "$ref": "#/$defs/iri" },
+        "minimumTopConcepts": { "type": "integer", "minimum": 0 },
+        "conceptCount": { "type": "integer", "minimum": 0, "description": "Exactly this many skos:Concept subjects." },
+        "minimumCollectionMembers": { "type": "integer", "minimum": 0 },
+        "glossary": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["iriPrefix"],
+          "description": "Concepts that keep house IRIs and trace to a pinned source.",
+          "properties": {
+            "iriPrefix": { "$ref": "#/$defs/iri" },
+            "count": { "type": "integer", "minimum": 0 },
+            "source": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": ["pattern"],
+              "description": "Each glossary concept has exactly one dcterms:source matching pattern. commitPattern's first capture group extracts the pinned commit; singleCommit requires all sources to carry the same one.",
+              "properties": {
+                "pattern": { "$ref": "#/$defs/regex" },
+                "commitPattern": { "$ref": "#/$defs/regex" },
+                "singleCommit": { "type": "boolean" },
+                "expectedCommit": { "type": "string", "minLength": 1, "maxLength": 200 }
+              }
+            },
+            "derivedFrom": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": ["pattern"],
+              "description": "Each glossary concept has exactly one prov:wasDerivedFrom matching pattern.",
+              "properties": { "pattern": { "$ref": "#/$defs/regex" } }
+            }
+          }
+        },
+        "projection": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["file"],
+          "description": "A generated SKOS JSON-LD projection (an @graph of nodes with compact skos:prefLabel, skos:notation, skos:definition and skos:related keys) that must agree with the vocabulary for every glossary concept.",
+          "properties": {
+            "file": { "$ref": "#/$defs/path" },
+            "definitionPrefixLength": { "type": "integer", "minimum": 1, "description": "The vocabulary definition's first N characters must open the projection's definition. Default 80." },
+            "countPointer": { "$ref": "#/$defs/pointer", "description": "JSON Pointer to the projection's own concept count, which must equal the number of glossary concepts." }
+          }
+        }
+      }
+    },
+    "closedSets": {
+      "type": "array",
+      "uniqueItems": true,
+      "description": "Each class is exactly the owl:oneOf list of one of its owl:equivalentClass expressions, and no other individual claims membership.",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["class", "size"],
+        "properties": {
+          "class": { "$ref": "#/$defs/iri" },
+          "size": { "type": "integer", "minimum": 0 }
+        }
+      }
+    },
+    "labelSets": {
+      "type": "array",
+      "description": "The skos:prefLabel strings of the instances of a class equal exactly this set.",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["class", "labels"],
+        "properties": {
+          "class": { "$ref": "#/$defs/iri" },
+          "labels": { "type": "array", "uniqueItems": true, "items": { "type": "string", "minLength": 1 } }
+        }
+      }
+    },
+    "records": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["glob", "context", "shapes", "baseIri", "unmappedPrefix"],
+      "description": "JSON data records: each is converted to RDF through a JSON-LD 1.1 context and judged by SHACL shapes.",
+      "properties": {
+        "glob": { "$ref": "#/$defs/glob" },
+        "context": { "$ref": "#/$defs/path", "description": "A JSON-LD file whose top-level @context is applied to every record." },
+        "shapes": { "$ref": "#/$defs/path" },
+        "baseIri": { "$ref": "#/$defs/iri", "description": "Must end in '/'. A record at <dir>/<stem>.json becomes the node <baseIri><stem>, with @base <baseIri><stem>/." },
+        "unmappedPrefix": { "$ref": "#/$defs/iri", "description": "Predicates and types under this IRI prefix are the context's @vocab fallback: a record key the context does not map." },
+        "topTypeNamespace": { "$ref": "#/$defs/iri", "description": "Every rdf:type of a record's top node must start with this IRI. Defaults to vocabulary.namespace when that is set." },
+        "kinds": {
+          "type": "object",
+          "additionalProperties": { "$ref": "#/$defs/iri" },
+          "description": "Record path to the class its top node must have. The matched record set must equal these keys, and each class must be a subclass of root.recordClass."
+        },
+        "graphExpectations": {
+          "type": "array",
+          "description": "Structural expectations over a converted record graph.",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["id", "record", "predicate"],
+            "anyOf": [{ "required": ["count"] }, { "required": ["objectTypes"] }],
+            "properties": {
+              "id": { "$ref": "#/$defs/slug" },
+              "record": { "$ref": "#/$defs/path" },
+              "predicate": { "$ref": "#/$defs/iri" },
+              "count": { "type": "integer", "minimum": 0, "description": "Exactly this many distinct objects of the predicate." },
+              "objectTypes": { "type": "array", "uniqueItems": true, "items": { "$ref": "#/$defs/iri" }, "description": "The union of rdf:types of those objects equals exactly this set." }
+            }
+          }
+        }
+      }
+    },
+    "shapeTests": {
+      "type": "array",
+      "description": "Negative (and baseline) tests: an RFC 6902 JSON Patch is applied to a copy of a record, and the result must violate or conform. They prove the shapes bite.",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["id", "record", "mutation", "expect", "reason"],
+        "properties": {
+          "id": { "$ref": "#/$defs/slug" },
+          "record": { "$ref": "#/$defs/path" },
+          "mutation": { "type": "array", "items": { "$ref": "#/$defs/patchOperation" }, "description": "RFC 6902 operations; an empty list leaves the record unchanged." },
+          "expect": { "enum": ["violates", "conforms"] },
+          "via": {
+            "enum": ["shacl", "context"],
+            "description": "How a violation must be detected. 'shacl' (default): the SHACL report does not conform. 'context': the conversion leaves a key or type unmapped. Ignored for 'conforms', which requires both to be clean."
+          },
+          "reason": { "type": "string", "minLength": 1, "maxLength": 500 }
+        }
+      }
+    }
+  },
+  "$defs": {
+    "path": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 400,
+      "pattern": "^(?!/)(?!.*(^|/)\\.\\.(/|$))(?!.*//)[^\\\\\\u0000-\\u001f]+$",
+      "description": "A relative, forward-slash repository path with no '..' segment."
+    },
+    "glob": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 400,
+      "pattern": "^(?!/)(?!.*(^|/)\\.\\.(/|$))(?!.*//)[^\\\\\\u0000-\\u001f]+$",
+      "description": "A path pattern: '*' and '?' stay inside one path segment, '**' crosses segments."
+    },
+    "iri": {
+      "type": "string",
+      "minLength": 3,
+      "maxLength": 500,
+      "pattern": "^[A-Za-z][A-Za-z0-9+.-]*:[^\\s<>\"{}|\\\\^`]+$",
+      "description": "An absolute IRI."
+    },
+    "regex": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 500,
+      "description": "A Python regular expression, matched with re.search."
+    },
+    "slug": {
+      "type": "string",
+      "pattern": "^[a-z0-9][a-z0-9.-]{0,127}$",
+      "description": "A stable identifier unique within its array."
+    },
+    "pointer": {
+      "type": "string",
+      "pattern": "^(/([^~/]|~[01])*)*$",
+      "description": "An RFC 6901 JSON Pointer."
+    },
+    "patchOperation": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["op", "path"],
+      "properties": {
+        "op": { "enum": ["add", "remove", "replace", "move", "copy", "test"] },
+        "path": { "$ref": "#/$defs/pointer" },
+        "from": { "$ref": "#/$defs/pointer" },
+        "value": {}
+      },
+      "allOf": [
+        { "if": { "properties": { "op": { "enum": ["add", "replace", "test"] } } }, "then": { "required": ["value"] } },
+        { "if": { "properties": { "op": { "enum": ["move", "copy"] } } }, "then": { "required": ["from"] } }
+      ]
+    }
+  }
+}
