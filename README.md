@@ -141,3 +141,7 @@ WHITE_REPOPULATION_ROOT=/path/to/white-repopulation PYTHONPATH=src python -m uni
   deterministic.
 - Built and tested with Python 3.12 only; the package metadata declares
   `>=3.12`.
+
+## SignCell cells
+
+`check-vocabulary-conformance --cells PATH` also writes the report as SignCell cells (`src/rdf_vocabulary_conformance/cells.py`): one cell per check and shape test, `subject` the `ni:` name of the canonical JSON of the report's `inputs`, `predicate` `urn:rdf-vocabulary-conformance:check:<id>` (or `:shape-test:<id>`), `object` `"conforms"`, the check's pass as a witness told for and each failure as a witness told against. The FOUR-valued verdict is the cell's presence (held, denied, contested, or unknown for a shape test that could not run). Python cannot import `@red-cup-engineering/signcell/cell`, so the module mirrors its wire shape only (exactly `subject`, `predicate`, `object`, `for`, `against`, and a knowledge-family `value` only when it differs from presence); a JavaScript consumer re-admits the file with `admitCell`, which also orders the witnesses by canonical CBOR bytes (here they are ordered by canonical JSON text).

@@ -16,6 +16,7 @@ from typing import Sequence
 from . import __version__
 from .collect import collect_files
 from .config import ConfigError, required_patterns, validate_config
+from .cells import cells_text, report_cells
 from .core import check_vocabulary_conformance, dumps
 
 DEFAULT_CONFIG = "ontology/conformance.json"
@@ -35,6 +36,7 @@ def main(argv: Sequence[str] | None = None) -> int:
     )
     parser.add_argument("--root", required=True, help="repository root; every path in the configuration is relative to it")
     parser.add_argument("--config", default=DEFAULT_CONFIG, help=f"configuration path relative to --root (default {DEFAULT_CONFIG})")
+    parser.add_argument("--cells", metavar="PATH", help="also write the report as SignCell cells (canonical JSON, see cells.py) to PATH, relative to --root")
     parser.add_argument("--version", action="version", version=f"%(prog)s {__version__}")
     args = parser.parse_args(argv)
 
@@ -60,6 +62,9 @@ def main(argv: Sequence[str] | None = None) -> int:
     files = collect_files(root, required_patterns(config))
     report = check_vocabulary_conformance(config, files)
     print(dumps(report, indent=2))
+    if args.cells is not None:
+        (root / args.cells).parent.mkdir(parents=True, exist_ok=True)
+        (root / args.cells).write_text(cells_text(report_cells(report)), encoding="utf-8")
     for check in report["checks"]:
         if not check["ok"]:
             print(f"FAIL {check['id']}: {check['detail']}", file=sys.stderr)
