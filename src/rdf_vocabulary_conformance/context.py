@@ -14,7 +14,7 @@ from typing import Any, Mapping
 
 import pyshacl
 from pyld import jsonld
-from rdflib import Graph, Namespace, URIRef
+from rdflib import Dataset, Graph, Namespace, URIRef
 from rdflib.namespace import RDF
 
 from . import globs
@@ -87,6 +87,7 @@ class Context:
         self.files = files
         self.reads: set[str] = set()
         self._graphs: dict[str, Graph] = {}
+        self._datasets: dict[str, Dataset] = {}
         self._json: dict[str, Any] = {}
         self._record_context: Any = None
 
@@ -131,6 +132,21 @@ class Context:
                 raise FileProblem(f"{path}: does not parse as {fmt} ({type(error).__name__}: {first})") from None
             self._graphs[path] = graph
         return self._graphs[path]
+
+    def dataset(self, path: str) -> Dataset:
+        if path not in self._datasets:
+            formats = {".nq": "nquads", ".trig": "trig"}
+            fmt = formats[PurePosixPath(path).suffix.lower()]
+            data = self.read(path)
+            if len(data) > 8 * 1024 * 1024:
+                raise FileProblem(f"{path}: dataset exceeds the input byte limit")
+            dataset = Dataset(default_union=False)
+            try:
+                dataset.parse(data=data.decode("utf-8"), format=fmt, publicID=f"urn:x-conformance:{path}")
+            except Exception as error:
+                raise FileProblem(f"{path}: invalid UTF-8 or {fmt} ({type(error).__name__})") from None
+            self._datasets[path] = dataset
+        return self._datasets[path]
 
     # -- derived graphs ----------------------------------------------------
 

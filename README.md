@@ -172,3 +172,11 @@ worst-case CPU time; run owner-approved queries in your usual bounded
 engineering runner, not as an arbitrary SPARQL network endpoint.
 
 Run the native regression tests with `PYTHONPATH=src python -m unittest discover -s tests`.
+
+To check the same named dataset by SHACL Core as well, add
+`"shapes": ["data/schema/vocabulary.shacl.ttl", "data/schema/observations.shacl.ttl"]`
+to `dataset`. Paths select nonempty local Turtle shapes exactly. A separate
+union view is passed to SHACL; the original named dataset remains unchanged
+for ASK. The default graph must be empty when this option is selected.
+Both verdicts are reported and either can fail independently. SHACL-SPARQL
+and executable extensions are outside this profile.
