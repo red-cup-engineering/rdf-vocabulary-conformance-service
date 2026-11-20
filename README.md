@@ -145,3 +145,30 @@ WHITE_REPOPULATION_ROOT=/path/to/white-repopulation PYTHONPATH=src python -m uni
 ## SignCell cells
 
 `check-vocabulary-conformance --cells PATH` also writes the report as SignCell cells (`src/rdf_vocabulary_conformance/cells.py`): one cell per check and shape test, `subject` the `ni:` name of the canonical JSON of the report's `inputs`, `predicate` `urn:rdf-vocabulary-conformance:check:<id>` (or `:shape-test:<id>`), `object` `"conforms"`, the check's pass as a witness told for and each failure as a witness told against. The FOUR-valued verdict is the cell's presence (held, denied, contested, or unknown for a shape test that could not run). Python cannot import `@red-cup-engineering/signcell/cell`, so the module mirrors its wire shape only (exactly `subject`, `predicate`, `object`, `for`, `against`, and a knowledge-family `value` only when it differs from presence); a JavaScript consumer re-admits the file with `admitCell`, which also orders the witnesses by canonical CBOR bytes (here they are ordered by canonical JSON text).
+
+## Check named-graph receiving
+
+A data-only profile can request offline ASK checks against a generated
+N-Quads (`.nq`) or TriG (`.trig`) dataset:
+
+~~~json
+{"formatVersion":1,"dataset":{"file":"build/glossary.nq","ask":[
+  {"id":"authored-relation","query":"data/schema/queries/authored-relation.rq","expect":true}
+]}}
+~~~
+
+Paths are exact repository-relative files, not globs. The normal report
+hashes both inputs and includes the `dataset.ask` verdict. The check keeps
+named graphs and the default graph distinct; it does not union them as a
+SHACL shape check might. A negative expectation needs a successfully
+evaluated false assertion, not missing data or a refused query.
+
+The profile is for source-reviewed local ASK queries. It admits basic
+patterns, named graphs and a bounded expression vocabulary. It does not
+evaluate external dataset clauses, federated services, arbitrary functions
+or property paths. The check accepts at most 32 queries, each no larger than
+16 KiB, over a dataset no larger than 8 MiB. Those limits bound inputs, not
+worst-case CPU time; run owner-approved queries in your usual bounded
+engineering runner, not as an arbitrary SPARQL network endpoint.
+
+Run the native regression tests with `PYTHONPATH=src python -m unittest discover -s tests`.

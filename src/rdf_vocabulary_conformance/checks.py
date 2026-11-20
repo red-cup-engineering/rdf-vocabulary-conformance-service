@@ -23,6 +23,7 @@ from rdflib.collection import Collection
 from rdflib.namespace import DCTERMS, OWL, RDF, RDFS, SKOS
 
 from . import jsonpatch
+from .dataset_checks import dataset_ask
 from .context import Context, FileProblem, jsonld_message, merged
 
 PROV_WAS_DERIVED_FROM = URIRef("http://www.w3.org/ns/prov#wasDerivedFrom")
@@ -512,4 +513,5 @@ REGISTRY: list[Check] = [
     ("records.convert-with-no-unmapped-key", lambda c: "records" in c, records_convert),
     ("records.conform-to-shapes", lambda c: "records" in c, records_conform),
     ("records.graph-expectations", lambda c: bool(c.get("records", {}).get("graphExpectations")), records_graph_expectations),
+    ("dataset.ask", lambda c: "dataset" in c, dataset_ask),
 ]
