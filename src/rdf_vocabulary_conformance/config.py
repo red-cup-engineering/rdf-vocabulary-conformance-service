@@ -81,7 +81,16 @@ def _semantic_errors(config: dict) -> list[str]:
     projection = config.get("skos", {}).get("projection")
     if projection is not None and "glossary" not in config["skos"]:
         errors.append("skos.projection: needs skos.glossary")
-    for section, items in (("shapeTests", config.get("shapeTests", [])), ("records.graphExpectations", (records or {}).get("graphExpectations", []))):
+    dataset = config.get("dataset", {})
+    if dataset:
+        for path in [dataset["file"], *(case["query"] for case in dataset["ask"])]:
+            if not is_safe_path(path) or any(char in path for char in "*?["):
+                errors.append(f"dataset: {path!r} must be an exact relative file path")
+    for section, items in (
+        ("shapeTests", config.get("shapeTests", [])),
+        ("records.graphExpectations", (records or {}).get("graphExpectations", [])),
+        ("dataset.ask", dataset.get("ask", [])),
+    ):
         ids = [item["id"] for item in items]
         for duplicate in sorted({i for i in ids if ids.count(i) > 1}):
             errors.append(f"{section}: duplicate id {duplicate!r}")
@@ -138,4 +147,8 @@ def required_patterns(config: dict) -> list[str]:
         add(item["record"])
     for item in config.get("shapeTests", []):
         add(item["record"])
+    dataset = config.get("dataset", {})
+    add(dataset.get("file"))
+    for item in dataset.get("ask", []):
+        add(item["query"])
     return sorted(found)
