@@ -75,5 +75,46 @@ class DatasetAsk(unittest.TestCase):
             check_vocabulary_conformance(c, {})
 
 
+
+class DatasetShapes(unittest.TestCase):
+    shapes_path = "data/shape.ttl"
+    shape = b"""
+        @prefix sh: <http://www.w3.org/ns/shacl#> .
+        <urn:test:shape> a sh:NodeShape ;
+          sh:targetNode <urn:test:act> ;
+          sh:property [ sh:path <urn:test:maps-to> ; sh:minCount 1 ; sh:class <urn:test:Diagram> ] .
+    """
+    type_quad = b"<urn:test:diagram> a <urn:test:Diagram>"
+
+    def result(self, relation_graph, include_type=True, shape=None):
+        config_with_shapes = config()
+        config_with_shapes["dataset"]["shapes"] = [self.shapes_path]
+        ttl = f"<urn:test:{relation_graph}> {{ ".encode() + TRIPLE + b" . }\n"
+        if include_type:
+            ttl += b"<urn:test:reviewed> { " + self.type_quad + b" . }\n"
+        config_with_shapes["dataset"]["file"] = "derived/graph.trig"
+        return check_vocabulary_conformance(config_with_shapes, {
+            "derived/graph.trig": ttl, QUERY_NAME: ASK, self.shapes_path: self.shape if shape is None else shape,
+        })
+
+    def test_independent_named_ask_and_union_shape_verdicts(self):
+        verdict = lambda row: {c["id"]: c["ok"] for c in row["checks"]}
+        confirms = self.result("authored")
+        self.assertTrue(confirms["ok"])
+        self.assertEqual(verdict(confirms), {"dataset.shacl": True, "dataset.ask": True})
+        self.assertIn(self.shapes_path, [f["path"] for f in confirms["inputs"]["files"]])
+        self.assertEqual(verdict(self.result("navigation")), {"dataset.shacl": True, "dataset.ask": False})
+        self.assertEqual(verdict(self.result("authored", include_type=False)),
+                         {"dataset.shacl": False, "dataset.ask": True})
+
+    def test_custom_validator_never_reaches_shacl_engine(self):
+        shape = self.shape + b'<urn:test:shape> <http://www.w3.org/ns/shacl#sparql> <urn:test:constraint> .'
+        with patch("rdf_vocabulary_conformance.context.pyshacl.validate") as evaluate:
+            result = self.result("authored", shape=shape)
+            evaluate.assert_not_called()
+        self.assertFalse(result["ok"])
+        self.assertIn("outside the SHACL Core profile", result["checks"][0]["detail"])
+
+
 if __name__ == "__main__":
     unittest.main()

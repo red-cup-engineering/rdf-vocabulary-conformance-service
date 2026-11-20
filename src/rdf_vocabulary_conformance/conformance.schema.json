@@ -17,6 +17,11 @@
       "description": "Offline checks of a repository-owned RDF dataset without flattening named graphs.",
       "properties": {
         "file": {"allOf": [{"$ref": "#/$defs/path"}, {"pattern": "[.](nq|trig)$"}]},
+        "shapes": {
+          "type": "array", "minItems": 1, "maxItems": 8, "uniqueItems": true,
+          "items": {"allOf": [{"$ref": "#/$defs/path"}, {"pattern": "[.]ttl$"}]},
+          "description": "Local SHACL Core Turtle shape files, validated against the dataset union."
+        },
         "ask": {
           "type": "array",
           "minItems": 1,

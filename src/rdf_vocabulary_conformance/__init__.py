@@ -1,6 +1,6 @@
 """Deterministic conformance checks for a research vocabulary and its data records."""
 
-__version__ = "0.2.0.dev0"
+__version__ = "0.2.0.dev1"
 
 from .config import ConfigError, required_patterns, validate_config  # noqa: E402
 from .core import check_vocabulary_conformance  # noqa: E402

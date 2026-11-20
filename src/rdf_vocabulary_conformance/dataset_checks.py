@@ -6,18 +6,15 @@ nonlocal or nondeterministic algebra before RDFLib evaluates an expression.
 """
 from __future__ import annotations
 
-from pathlib import PurePosixPath
-
 from pyparsing import ParseResults
-from rdflib import Dataset
+from rdflib import Graph
+from rdflib.namespace import OWL, RDF
 from rdflib.paths import Path as PropertyPath
 from rdflib.plugins.sparql import prepareQuery
 from rdflib.plugins.sparql.parserutils import CompValue
 
-from .context import Context, FileProblem
+from .context import Context, FileProblem, SH, merged
 
-FORMATS = {".nq": "nquads", ".trig": "trig"}
-MAX_DATASET_BYTES = 8 * 1024 * 1024
 MAX_QUERY_BYTES = 16 * 1024
 MAX_ALGEBRA_NODES = 2048
 # Structural allowlist; nested FILTER NOT EXISTS retains parsed graph syntax
@@ -64,16 +61,7 @@ def _admit_query(text: str):
 
 def dataset_ask(ctx: Context) -> tuple[list[str], str]:
     section = ctx.config["dataset"]
-    path = section["file"]
-    data = ctx.read(path)
-    if len(data) > MAX_DATASET_BYTES:
-        raise FileProblem(f"{path}: dataset exceeds the input byte limit")
-    dataset = Dataset(default_union=False)
-    fmt = FORMATS[PurePosixPath(path).suffix.lower()]
-    try:
-        dataset.parse(data=data.decode("utf-8"), format=fmt, publicID=f"urn:x-conformance:{path}")
-    except Exception as error:
-        raise FileProblem(f"{path}: invalid UTF-8 or {fmt} ({type(error).__name__})") from None
+    dataset = ctx.dataset(section["file"])
     failures = []
     for item in section["ask"]:
         name, query_path = item["id"], item["query"]
@@ -91,3 +79,33 @@ def dataset_ask(ctx: Context) -> tuple[list[str], str]:
             first = (str(error).strip().splitlines() or [""])[0][:200]
             failures.append(f"{name}: {query_path}: {type(error).__name__}: {first}")
     return failures, f"{len(section['ask'])} local dataset ASK checks"
+
+
+def dataset_shacl(ctx: Context) -> tuple[list[str], str]:
+    """SHACL Core runs on a separate union; do not change the ASK dataset."""
+    section = ctx.config["dataset"]
+    dataset = ctx.dataset(section["file"])
+    shape_paths = section["shapes"]
+    # Explicit local Core shapes only: no executable extensions or imports.
+    shapes = merged(*(ctx.graph(path) for path in shape_paths))
+    if not shapes:
+        raise FileProblem("dataset.shapes: expected nonempty local SHACL Core shapes")
+    extra_types = {SH.SPARQLConstraint, SH.SPARQLConstraintComponent, SH.JSConstraint,
+                   SH.JSConstraintComponent, SH.SPARQLTarget, SH.JSTarget, SH.SPARQLRule, SH.TripleRule,
+                   SH.ConstraintComponent}
+    extra_paths = {SH.sparql, SH.select, SH.ask, SH.js, SH.jsFunctionName, SH.target, SH.rule,
+                   SH.validator, SH.nodeValidator, SH.propertyValidator, OWL.imports}
+    for _, predicate, obj in shapes:
+        if predicate in extra_paths or (predicate == RDF.type and obj in extra_types):
+            raise FileProblem("dataset.shapes: executable shapes and ontology imports are outside the SHACL Core profile")
+    if len(dataset.default_graph):
+        raise FileProblem("dataset.shapes: SHACL Core expects named data; the default graph is not empty")
+    union = Graph()
+    for s, p, o, _ in dataset.quads():
+        union.add((s, p, o))
+    if not union:
+        raise FileProblem("dataset.shapes: no named triples to validate")
+    conforms, failures = ctx.shacl(union, shapes)
+    if not conforms and not failures:
+        failures = ["dataset does not conform"]
+    return failures, f"SHACL Core over the dataset union with {len(shape_paths)} shape files"
