@@ -6,6 +6,7 @@ nonlocal or nondeterministic algebra before RDFLib evaluates an expression.
 """
 from __future__ import annotations
 
+from collections.abc import Iterable
 from urllib.parse import quote
 
 from pyparsing import ParseResults
@@ -73,6 +74,48 @@ def matches_named_graph(dataset: Dataset, graph_iri: URIRef, reference: Graph) -
         return False
     actual = dataset.get_context(graph_iri)
     return bool(reference) and len(actual) == len(reference) and isomorphic(actual, reference)
+
+
+def _named_graph_layout_failures(dataset: Dataset, *, required: Iterable[str],
+                                optional: Iterable[str] = (), disjoint: bool = False) -> list[str]:
+    """Judge the nonempty contexts of an already parsed RDF dataset.
+
+    A dataset must have an empty default graph, all required IRI-named
+    graphs, and no other nonempty graph besides the allowed optional ones.
+    Optional disjointness compares actual RDF triples in those contexts.
+    """
+    mandatory = frozenset(URIRef(value) for value in required)
+    allowed = mandatory | frozenset(URIRef(value) for value in optional)
+    default = dataset.default_graph.identifier
+    named = {graph.identifier: graph for graph in dataset.graphs()
+             if graph.identifier != default and len(graph)}
+    failures = []
+    if len(dataset.default_graph):
+        failures.append("default graph is not empty")
+    failures.extend(f"required named graph is missing or empty: {iri}" for iri in sorted(mandatory - named.keys()))
+    # Blank graph labels are parser-local and cannot appear in a reproducible error.
+    blank_count = sum(1 for name in named if not isinstance(name, URIRef))
+    if blank_count:
+        failures.append(f"{blank_count} nonempty named graphs do not have an IRI")
+    failures.extend(f"unexpected named graph: {iri}" for iri in sorted(
+        name for name in named.keys() - allowed if isinstance(name, URIRef)))
+    if disjoint and not failures:
+        prior = set()
+        for iri, graph in sorted(named.items()):
+            if any(triple in prior for triple in graph):
+                failures.append(f"named graph shares statements with an earlier graph: {iri}")
+            prior.update(graph)
+    return failures
+
+
+def dataset_named_graph_layout(ctx: Context) -> tuple[list[str], str]:
+    section = ctx.config["dataset"]
+    layout = section["namedGraphLayout"]
+    failures = _named_graph_layout_failures(
+        ctx.dataset(section["file"]), required=layout["required"],
+        optional=layout.get("optional", ()), disjoint=layout.get("disjoint", False),
+    )
+    return failures, "closed layout of nonempty named RDF graphs"
 
 
 def dataset_graph_matches(ctx: Context) -> tuple[list[str], str]:

@@ -8,6 +8,8 @@ from functools import lru_cache
 from importlib import resources
 from typing import Any
 
+from rdflib.graph import DATASET_DEFAULT_GRAPH_ID
+
 from . import _jsonschema
 from .globs import matches
 
@@ -83,6 +85,11 @@ def _semantic_errors(config: dict) -> list[str]:
         errors.append("skos.projection: needs skos.glossary")
     dataset = config.get("dataset", {})
     if dataset:
+        layout = dataset.get("namedGraphLayout")
+        if layout and set(layout["required"]) & set(layout.get("optional", [])):
+            errors.append("dataset.namedGraphLayout: required and optional graph IDs must be disjoint")
+        if layout and str(DATASET_DEFAULT_GRAPH_ID) in layout["required"] + layout.get("optional", []):
+            errors.append("dataset.namedGraphLayout: the default graph cannot be named explicitly")
         for path in [dataset["file"], *dataset.get("shapes", []),
                      *(case["query"] for case in dataset.get("ask", [])),
                      *(case["reference"] for case in dataset.get("graphMatches", []))]:
