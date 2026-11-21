@@ -1,4 +1,4 @@
-"""Offline ASK checks over an explicitly supplied RDF dataset.
+"""Offline receiving checks over an explicitly supplied RDF dataset.
 
 This is the publication-facing check profile for repository-owned queries,
 not another general SPARQL endpoint. Keep named graphs separate, and refuse
@@ -6,8 +6,11 @@ nonlocal or nondeterministic algebra before RDFLib evaluates an expression.
 """
 from __future__ import annotations
 
+from urllib.parse import quote
+
 from pyparsing import ParseResults
-from rdflib import Graph
+from rdflib import Dataset, Graph, URIRef
+from rdflib.compare import isomorphic
 from rdflib.namespace import OWL, RDF
 from rdflib.paths import Path as PropertyPath
 from rdflib.plugins.sparql import prepareQuery
@@ -16,6 +19,7 @@ from rdflib.plugins.sparql.parserutils import CompValue
 from .context import Context, FileProblem, SH, merged
 
 MAX_QUERY_BYTES = 16 * 1024
+MAX_REFERENCE_BYTES = 8 * 1024 * 1024
 MAX_ALGEBRA_NODES = 2048
 # Structural allowlist; nested FILTER NOT EXISTS retains parsed graph syntax
 # in RDFLib and must pass the same admission as the translated outer query.
@@ -57,6 +61,41 @@ def _admit_query(text: str):
         elif isinstance(value, (tuple, list, set, ParseResults)):
             work.extend(value)
     return prepared
+
+
+def matches_named_graph(dataset: Dataset, graph_iri: URIRef, reference: Graph) -> bool:
+    """Compare a nonempty named graph with a reference up to blank-node renaming.
+
+    The default graph, missing named graphs and empty references never pass.
+    Read only the identified graph, without registering an empty context.
+    """
+    if not isinstance(graph_iri, URIRef) or graph_iri == dataset.default_graph.identifier:
+        return False
+    actual = dataset.get_context(graph_iri)
+    return bool(reference) and len(actual) == len(reference) and isomorphic(actual, reference)
+
+
+def dataset_graph_matches(ctx: Context) -> tuple[list[str], str]:
+    """Bind selected named graphs to exact local Turtle references."""
+    section = ctx.config["dataset"]
+    dataset = ctx.dataset(section["file"])
+    failures = []
+    for item in section["graphMatches"]:
+        name, graph_iri, path = item["id"], item["graph"], item["reference"]
+        try:
+            data = ctx.read(path)
+            if len(data) > MAX_REFERENCE_BYTES:
+                raise ValueError("Turtle reference exceeds the input byte limit")
+            reference = Graph().parse(data=data.decode("utf-8"), format="turtle",
+                                      publicID=item.get("baseIri", "https://rdf-reference.invalid/" + quote(path)))
+            if not matches_named_graph(dataset, URIRef(graph_iri), reference):
+                failures.append(f"{name}: named graph {graph_iri} differs from the nonempty Turtle reference {path}")
+        except FileProblem as error:
+            failures.append(f"{name}: {error}")
+        except Exception as error:
+            first = (str(error).strip().splitlines() or [""])[0][:200]
+            failures.append(f"{name}: {path}: {type(error).__name__}: {first}")
+    return failures, f"{len(section['graphMatches'])} named graph references"
 
 
 def dataset_ask(ctx: Context) -> tuple[list[str], str]:

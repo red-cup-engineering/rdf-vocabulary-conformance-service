@@ -13,7 +13,8 @@
     "dataset": {
       "type": "object",
       "additionalProperties": false,
-      "required": ["file", "ask"],
+      "required": ["file"],
+      "minProperties": 2,
       "description": "Offline checks of a repository-owned RDF dataset without flattening named graphs.",
       "properties": {
         "file": {"allOf": [{"$ref": "#/$defs/path"}, {"pattern": "[.](nq|trig)$"}]},
@@ -21,6 +22,23 @@
           "type": "array", "minItems": 1, "maxItems": 8, "uniqueItems": true,
           "items": {"allOf": [{"$ref": "#/$defs/path"}, {"pattern": "[.]ttl$"}]},
           "description": "Local SHACL Core Turtle shape files, validated against the dataset union."
+        },
+        "graphMatches": {
+          "type": "array",
+          "minItems": 1,
+          "maxItems": 16,
+          "description": "Selected IRI-named graphs must match nonempty local Turtle references as RDF graphs.",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["id", "graph", "reference"],
+            "properties": {
+              "id": {"type": "string", "minLength": 1, "maxLength": 100},
+              "graph": {"$ref": "#/$defs/iri"},
+              "reference": {"allOf": [{"$ref": "#/$defs/path"}, {"pattern": "[.]ttl$"}]},
+              "baseIri": {"$ref": "#/$defs/iri", "description": "Base IRI used by the producer if the reference contains relative IRIs."}
+            }
+          }
         },
         "ask": {
           "type": "array",

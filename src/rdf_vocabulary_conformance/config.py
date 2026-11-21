@@ -83,13 +83,16 @@ def _semantic_errors(config: dict) -> list[str]:
         errors.append("skos.projection: needs skos.glossary")
     dataset = config.get("dataset", {})
     if dataset:
-        for path in [dataset["file"], *dataset.get("shapes", []), *(case["query"] for case in dataset["ask"])]:
+        for path in [dataset["file"], *dataset.get("shapes", []),
+                     *(case["query"] for case in dataset.get("ask", [])),
+                     *(case["reference"] for case in dataset.get("graphMatches", []))]:
             if not is_safe_path(path) or any(char in path for char in "*?["):
                 errors.append(f"dataset: {path!r} must be an exact relative file path")
     for section, items in (
         ("shapeTests", config.get("shapeTests", [])),
         ("records.graphExpectations", (records or {}).get("graphExpectations", [])),
         ("dataset.ask", dataset.get("ask", [])),
+        ("dataset.graphMatches", dataset.get("graphMatches", [])),
     ):
         ids = [item["id"] for item in items]
         for duplicate in sorted({i for i in ids if ids.count(i) > 1}):
@@ -153,4 +156,6 @@ def required_patterns(config: dict) -> list[str]:
         add(path)
     for item in dataset.get("ask", []):
         add(item["query"])
+    for item in dataset.get("graphMatches", []):
+        add(item["reference"])
     return sorted(found)

@@ -180,3 +180,27 @@ union view is passed to SHACL; the original named dataset remains unchanged
 for ASK. The default graph must be empty when this option is selected.
 Both verdicts are reported and either can fail independently. SHACL-SPARQL
 and executable extensions are outside this profile.
+
+
+Supply a reviewed graph reference when a shape or selected ASK is not
+enough to establish that the whole published named graph matches its source:
+
+~~~json
+{"formatVersion":1,"dataset":{"file":"build/glossary.nq","graphMatches":[
+  {"id":"reviewed-vocabulary","graph":"urn:research:graph:reviewed",
+   "reference":"data/records/ontology.ttl"}
+]}}
+~~~
+
+`dataset.graphMatches` compares nonempty graphs as parsed by pinned RDFLib. Triple order and
+blank-node labels do not matter; missing, extra, or changed triples in the
+selected graph fail. The default graph and unrelated named graphs do not
+stand in for it. Turtle references are exact local files, limited to 8 MiB
+each. Prefer absolute IRIs in the source; if relative IRIs are intentional,
+supply the producer's `baseIri` (otherwise the synthetic base is
+`https://rdf-reference.invalid/<path>`). The report hashes the data and reference.
+ASK, SHACL Core, and graph comparisons can be used independently or together.
+
+An in-process receiver that already bound and parsed both inputs can instead
+call `matches_named_graph(dataset, graph_iri, reference)` with an RDFLib
+Dataset, URIRef, and Graph. The CLI uses this same comparison.
