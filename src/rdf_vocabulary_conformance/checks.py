@@ -23,7 +23,7 @@ from rdflib.collection import Collection
 from rdflib.namespace import DCTERMS, OWL, RDF, RDFS, SKOS
 
 from . import jsonpatch
-from .dataset_checks import dataset_ask, dataset_graph_matches, dataset_shacl
+from .dataset_checks import dataset_ask, dataset_graph_matches, dataset_named_graph_layout, dataset_shacl
 from .context import Context, FileProblem, jsonld_message, merged
 
 PROV_WAS_DERIVED_FROM = URIRef("http://www.w3.org/ns/prov#wasDerivedFrom")
@@ -515,5 +515,6 @@ REGISTRY: list[Check] = [
     ("records.graph-expectations", lambda c: bool(c.get("records", {}).get("graphExpectations")), records_graph_expectations),
     ("dataset.shacl", lambda c: "shapes" in c.get("dataset", {}), dataset_shacl),
     ("dataset.ask", lambda c: "ask" in c.get("dataset", {}), dataset_ask),
+    ("dataset.namedGraphLayout", lambda c: "namedGraphLayout" in c.get("dataset", {}), dataset_named_graph_layout),
     ("dataset.graphMatches", lambda c: "graphMatches" in c.get("dataset", {}), dataset_graph_matches),
 ]

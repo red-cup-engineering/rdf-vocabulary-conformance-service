@@ -204,3 +204,22 @@ ASK, SHACL Core, and graph comparisons can be used independently or together.
 An in-process receiver that already bound and parsed both inputs can instead
 call `matches_named_graph(dataset, graph_iri, reference)` with an RDFLib
 Dataset, URIRef, and Graph. The CLI uses this same comparison.
+
+
+Use `dataset.namedGraphLayout` when the role of a statement depends on its
+named graph, even if the dataset union is unchanged:
+
+~~~json
+{"formatVersion":1,"dataset":{"file":"build/glossary.nq","namedGraphLayout":
+  {"required":["urn:research:graph:reviewed","urn:research:graph:documents"],
+   "optional":["urn:research:graph:navigation"],"disjoint":true}}}
+~~~
+
+The default graph must be empty, every required IRI-named graph must contain
+data, and no other nonempty graph is admitted except those listed as optional.
+Empty graphs do not count toward the layout: N-Quads cannot represent them.
+With `disjoint: true`, copying even a single parsed RDF triple into another
+allowed graph fails, though the union would be unchanged. Leave it false for
+data whose intended structure shares statements among graphs. This test is
+structural, not a proof of the asserted claims or a replacement for graph
+references, SHACL or ASK.

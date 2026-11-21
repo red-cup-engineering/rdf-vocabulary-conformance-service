@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "rdf-vocabulary-conformance-service"
-version = "0.2.0.dev2"
+version = "0.2.0.dev3"
 description = "Deterministic conformance checks for a research vocabulary (OWL/SKOS/SHACL) and the JSON data records that use it, parameterized by a data-only configuration file."
 readme = "README.md"
 license = "MIT"
