@@ -75,6 +75,30 @@ pip install "rdf-vocabulary-conformance-service @ git+https://github.com/red-cup
 check-vocabulary-conformance --root .
 ~~~
 
+### Compile a saved local SELECT
+
+The Python API `prepare_local_select(query: bytes)` admits a source-reviewed
+UTF-8 SELECT and returns its compiled RDFLib `Query`. This is not a conformance
+configuration check or a query endpoint. The caller supplies the existing
+local dataset and selects RDFLib's local evaluator:
+
+```python
+from rdf_vocabulary_conformance import prepare_local_select
+
+query = prepare_local_select(b"SELECT ?s WHERE { GRAPH <urn:example:graph> { ?s ?p ?o } }")
+rows = dataset.query(query, use_store_provided=False)
+```
+
+The SELECT profile is separate from ASK. Its supported patterns include
+constant named graphs, joins and optional/union patterns, inline VALUES,
+filters, projections, distinct results, ordering, and grouped COUNT. Triple
+patterns cannot read the default graph. Dataset clauses, SERVICE, variable
+graph names, property paths, subqueries, authored SAMPLE and functions outside
+the allowlist are refused. RDFLib's implicit SAMPLE is allowed only to project
+a variable of its own GROUP BY. A 16 KiB input bound and a 2,048-node structural
+bound apply before evaluation. They do not bound result count or runtime; the
+caller owns those limits and the dataset's custody and trust.
+
 ### NDJSON
 
 `check-vocabulary-conformance-ndjson` reads one JSON request per stdin line and

@@ -7,15 +7,19 @@ nonlocal or nondeterministic algebra before RDFLib evaluates an expression.
 from __future__ import annotations
 
 from collections.abc import Iterable
-from urllib.parse import quote
+from urllib.parse import quote, urlsplit
 
 from pyparsing import ParseResults
-from rdflib import Dataset, Graph, URIRef
+from rdflib import Dataset, Graph, URIRef, Variable
 from rdflib.compare import isomorphic
+from rdflib.graph import DATASET_DEFAULT_GRAPH_ID
 from rdflib.namespace import OWL, RDF
 from rdflib.paths import Path as PropertyPath
 from rdflib.plugins.sparql import prepareQuery
+from rdflib.plugins.sparql.algebra import translateQuery
+from rdflib.plugins.sparql.parser import parseQuery
 from rdflib.plugins.sparql.parserutils import CompValue
+from rdflib.plugins.sparql.sparql import Query
 
 from .context import Context, FileProblem, SH, merged
 
@@ -34,34 +38,110 @@ ALLOWED = frozenset({
 })
 
 
-def _admit_query(text: str):
-    prepared = prepareQuery(text)
-    root = prepared.algebra
-    if root.name != "AskQuery" or root["datasetClause"]:
-        raise ValueError("requires ASK over the supplied dataset; no FROM or FROM NAMED")
-    work = [root]
+# Saved SELECT projections use a separate, explicit local profile; additions
+# here do not widen the older ASK admission.
+SELECT_ALLOWED = frozenset({
+    "SelectQuery", "BGP", "Join", "LeftJoin", "Union", "Project", "Graph", "Filter",
+    "Extend", "Distinct", "OrderBy", "OrderCondition", "TrueFilter", "UnaryNot",
+    "ConditionalAndExpression", "ConditionalOrExpression", "RelationalExpression",
+    "Builtin_BOUND", "Builtin_sameTerm", "Builtin_COALESCE", "Builtin_IF",
+    "ToMultiSet", "values", "Group", "AggregateJoin", "Aggregate_Count", "Aggregate_Sample",
+})
+
+
+def _prepare_select(text: str):
+    syntax = parseQuery(text)
+    if syntax[1].name != "SelectQuery" or "datasetClause" in syntax[1]:
+        raise ValueError("requires SELECT over the supplied dataset; no FROM or FROM NAMED")
+    # RDFLib rewrites grouped projections to SAMPLE internally. Inspect its
+    # syntax before that translation so an authored SAMPLE cannot impersonate it.
+    work = [syntax]
     count = 0
-    seen = set()
     while work:
         value = work.pop()
-        if isinstance(value, PropertyPath):
-            raise ValueError("property paths are outside the local ASK profile")
         if isinstance(value, CompValue):
-            if value.name not in ALLOWED:
-                raise ValueError(f"{value.name} is outside the local ASK profile")
-            if id(value) in seen:
-                continue
-            seen.add(id(value))
+            if value.name in {"SubSelect", "Aggregate_Sample", "ServiceGraphPattern"}:
+                raise ValueError(f"{value.name} is outside the local SELECT profile")
             count += 1
             if count > MAX_ALGEBRA_NODES:
-                raise ValueError("ASK algebra exceeds the node limit")
+                raise ValueError("SELECT syntax exceeds the node limit")
             work.extend(value.values())
-            evaluated = vars(value).get("graph")
-            if evaluated is not None:
-                work.append(evaluated)
         elif isinstance(value, (tuple, list, set, ParseResults)):
             work.extend(value)
+    return translateQuery(syntax)
+
+
+def _admit_query(text: str, *, select: bool = False):
+    prepared = _prepare_select(text) if select else prepareQuery(text)
+    root = prepared.algebra
+    operation = "SELECT" if select else "ASK"
+    if root.name != ("SelectQuery" if select else "AskQuery") or root["datasetClause"]:
+        raise ValueError(f"requires {operation} over the supplied dataset; no FROM or FROM NAMED")
+    allowed = SELECT_ALLOWED if select else ALLOWED
+    work = [(root, False)]
+    count = 0
+    seen = set()
+    group_samples = set()
+    while work:
+        value, named = work.pop()
+        if isinstance(value, PropertyPath):
+            raise ValueError(f"property paths are outside the local {operation} profile")
+        if isinstance(value, CompValue):
+            if value.name not in allowed:
+                raise ValueError(f"{value.name} is outside the local {operation} profile")
+            key = id(value), named
+            if key in seen:
+                continue
+            seen.add(key)
+            count += 1
+            if count > MAX_ALGEBRA_NODES:
+                raise ValueError(f"{operation} algebra exceeds the node limit")
+            if select:
+                if value.name == "Graph" and (
+                    not isinstance(value.term, URIRef) or not urlsplit(value.term).scheme
+                    or value.term == DATASET_DEFAULT_GRAPH_ID
+                ):
+                    raise ValueError("local SELECT GRAPH requires a constant named graph IRI")
+                if value.name == "BGP" and value.triples and not named:
+                    raise ValueError("local SELECT triple patterns require a named GRAPH")
+                if value.name == "ToMultiSet":
+                    if not isinstance(value.p, CompValue) or value.p.name != "values":
+                        raise ValueError("local SELECT multiset input must be VALUES")
+                if value.name == "AggregateJoin":
+                    group = value.p
+                    keys = group.expr if isinstance(group, CompValue) and group.name == "Group" else None
+                    group_keys = {expr for expr in keys or () if isinstance(expr, Variable)}
+                    for aggregator in value.A:
+                        if aggregator.name == "Aggregate_Sample":
+                            if not isinstance(aggregator.vars, Variable) or aggregator.vars not in group_keys:
+                                raise ValueError("local SELECT implicit SAMPLE must project a GROUP BY variable")
+                            group_samples.add(id(aggregator))
+                if value.name == "Aggregate_Sample" and id(value) not in group_samples:
+                    raise ValueError("local SELECT SAMPLE requires its own Group")
+            work.extend((child, named or (select and value.name == "Graph" and slot == "p"))
+                        for slot, child in value.items())
+            evaluated = vars(value).get("graph")
+            if evaluated is not None:
+                work.append((evaluated, named))
+        elif isinstance(value, (tuple, list, set, ParseResults)):
+            work.extend((child, named) for child in value)
+        elif select and isinstance(value, dict):
+            work.extend((child, named) for child in value.values())
     return prepared
+
+
+def prepare_local_select(query: bytes) -> Query:
+    """Compile a structurally bounded SELECT for an already supplied local dataset.
+
+    No dataset is created, extended or evaluated here. Evaluate the result
+    with RDFLib's local processor (``use_store_provided=False``) on the caller's
+    trusted dataset. The syntax limits are not limits on result size or runtime.
+    """
+    if not isinstance(query, bytes):
+        raise TypeError("local SELECT input must be UTF-8 bytes")
+    if len(query) > MAX_QUERY_BYTES:
+        raise ValueError("query exceeds the input byte limit")
+    return _admit_query(query.decode("utf-8"), select=True)
 
 
 def matches_named_graph(dataset: Dataset, graph_iri: URIRef, reference: Graph) -> bool:
