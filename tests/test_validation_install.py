@@ -104,11 +104,22 @@ class ValidationInstall(unittest.TestCase):
     def test_full_jsonld_still_refuses_a_remote_context(self):
         if not has_module("pyld"):
             self.skipTest("requires full validation install")
-        files = {**RECORD_FILES, CONTEXT: b'{"@context":"https://example.invalid/context"}'}
-        checks = check_map(check_vocabulary_conformance(RECORD_CONFIG, files))
+        from unittest.mock import patch
+
+        from rdf_vocabulary_conformance.context import _refuse_remote
+
+        url = "https://example.invalid/context"
+        files = {**RECORD_FILES, CONTEXT: json.dumps({"@context": url}).encode()}
+        # Exercise the actual PyLD engine and local refusing loader. The outer
+        # PyLD exception text is bounded and can omit a nested diagnostic.
+        with patch("rdf_vocabulary_conformance.context._refuse_remote", wraps=_refuse_remote) as loader:
+            report = check_vocabulary_conformance(RECORD_CONFIG, files)
+        loader.assert_called()
+        self.assertTrue(all(call.args[0] == url for call in loader.call_args_list))
+        checks = check_map(report)
+        self.assertFalse(report["ok"])
         self.assertFalse(checks["records.context-processes"]["ok"])
-        self.assertIn("remote document 'https://example.invalid/context' refused: contexts must be inline",
-                      checks["records.convert-with-no-unmapped-key"]["detail"])
+        self.assertFalse(checks["records.convert-with-no-unmapped-key"]["ok"])
 
     def test_validation_cli_keeps_json_report_and_exit_code(self):
         with tempfile.TemporaryDirectory() as tmp:
