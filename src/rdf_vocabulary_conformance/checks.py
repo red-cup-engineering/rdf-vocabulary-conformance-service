@@ -406,10 +406,9 @@ def records_kinds(ctx: Context) -> Outcome:
 
 def records_context_valid(ctx: Context) -> Outcome:
     """The context must itself process: expanding a probe document uses every term definition."""
-    from pyld import jsonld
+    from .context import _refuse_remote, _require_jsonld
 
-    from .context import _refuse_remote
-
+    jsonld = _require_jsonld()
     context = ctx.record_context()
     try:
         jsonld.expand(

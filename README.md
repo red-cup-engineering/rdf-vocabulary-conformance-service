@@ -57,7 +57,7 @@ Judges the vocabulary and records named by `config`, reading only the bytes in
 ### CLI
 
 ~~~sh
-pip install -r requirements.txt && pip install .
+python -m pip install '.[conformance]'
 check-vocabulary-conformance --root path/to/science-repo [--config ontology/conformance.json]
 ~~~
 
@@ -75,7 +75,18 @@ pip install "rdf-vocabulary-conformance-service @ git+https://github.com/red-cup
 check-vocabulary-conformance --root .
 ~~~
 
+The base package can run RDF- and dataset-only checks, including local ASK,
+without the validation extra. JSON-LD 1.1 record conversion and SHACL
+validation require `[conformance]`. If a configured check needs a missing
+engine, it is reported as failed (exit 1), never skipped. The checkout's
+`requirements.txt` installs this same extra; the pinned dependencies are
+maintained in `pyproject.toml`.
+
 ### Compile a saved local SELECT
+
+With version 0.3 and later, install the base package (`python -m pip install .`
+from this checkout) to use local query admission without the JSON-LD and SHACL
+validation engines.
 
 The Python API `prepare_local_select(query: bytes)` admits a source-reviewed
 UTF-8 SELECT and returns its compiled RDFLib `Query`. This is not a conformance

@@ -12,8 +12,6 @@ import warnings
 from pathlib import PurePosixPath
 from typing import Any, Mapping
 
-import pyshacl
-from pyld import jsonld
 from rdflib import Dataset, Graph, Namespace, URIRef
 from rdflib.namespace import RDF
 
@@ -35,8 +33,39 @@ class FileProblem(Exception):
     """A supplied file is missing, unreadable, or does not parse. The message names it."""
 
 
+class ConformanceDependencyMissing(FileProblem):
+    """A requested check needs a validation engine not installed by the base package."""
+
+
+def _missing_engine(engine: str) -> ConformanceDependencyMissing:
+    return ConformanceDependencyMissing(
+        f"{engine} requires the 'conformance' extra; "
+        "install 'rdf-vocabulary-conformance-service[conformance]' from the same source"
+    )
+
+
+def _require_jsonld():
+    try:
+        from pyld import jsonld
+    except ModuleNotFoundError as error:
+        if error.name != "pyld":
+            raise
+        raise _missing_engine("JSON-LD validation (PyLD)") from None
+    return jsonld
+
+
+def _require_pyshacl():
+    try:
+        import pyshacl
+    except ModuleNotFoundError as error:
+        if error.name != "pyshacl":
+            raise
+        raise _missing_engine("SHACL validation (PySHACL)") from None
+    return pyshacl
+
+
 def _refuse_remote(url: str, options: dict | None = None) -> Any:
-    raise jsonld.JsonLdError(
+    raise _require_jsonld().JsonLdError(
         f"remote document {url!r} refused: contexts must be inline",
         "jsonld.LoadDocumentError",
         {"url": url},
@@ -186,6 +215,7 @@ class Context:
 
     def record_graph(self, path: str, record: dict) -> Graph:
         """A record as RDF through the JSON-LD 1.1 context (PyLD, spec-compliant)."""
+        jsonld = _require_jsonld()
         base = self.config["records"]["baseIri"]
         stem = PurePosixPath(path).stem
         document = {
@@ -211,7 +241,7 @@ class Context:
         return sorted(found)
 
     def shacl(self, data: Graph, shapes: Graph, ontology: Graph | None = None) -> tuple[bool, list[str]]:
-        conforms, results, _text = pyshacl.validate(
+        conforms, results, _text = _require_pyshacl().validate(
             data, shacl_graph=shapes, ont_graph=ontology, inference="none"
         )
         return bool(conforms), ([] if conforms else violations(results))

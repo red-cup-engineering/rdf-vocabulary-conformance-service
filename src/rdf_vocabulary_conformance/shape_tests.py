@@ -9,7 +9,7 @@ good data, so a green run means something.
 from __future__ import annotations
 
 from . import jsonpatch
-from .context import Context, FileProblem
+from .context import ConformanceDependencyMissing, Context, FileProblem
 
 
 def _run_one(ctx: Context, item: dict, shapes, ontology) -> dict:
@@ -28,6 +28,9 @@ def _run_one(ctx: Context, item: dict, shapes, ontology) -> dict:
     unmapped = ctx.unmapped(graph)
     try:
         conforms, lines = ctx.shacl(graph, shapes, ontology)
+    except ConformanceDependencyMissing as error:
+        result.update(ok=False, actual="error", detail=str(error))
+        return result
     except Exception as error:  # pyshacl raises its own runtime errors
         result.update(ok=False, actual="error", detail=f"SHACL validation failed ({type(error).__name__}: {str(error)[:200]})")
         return result

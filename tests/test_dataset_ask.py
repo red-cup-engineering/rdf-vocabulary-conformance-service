@@ -1,4 +1,5 @@
 import hashlib
+import importlib.util
 import unittest
 from unittest.mock import patch
 
@@ -97,6 +98,7 @@ class DatasetShapes(unittest.TestCase):
             "derived/graph.trig": ttl, QUERY_NAME: ASK, self.shapes_path: self.shape if shape is None else shape,
         })
 
+    @unittest.skipUnless(importlib.util.find_spec("pyshacl"), "requires full validation install")
     def test_independent_named_ask_and_union_shape_verdicts(self):
         verdict = lambda row: {c["id"]: c["ok"] for c in row["checks"]}
         confirms = self.result("authored")
@@ -109,7 +111,7 @@ class DatasetShapes(unittest.TestCase):
 
     def test_custom_validator_never_reaches_shacl_engine(self):
         shape = self.shape + b'<urn:test:shape> <http://www.w3.org/ns/shacl#sparql> <urn:test:constraint> .'
-        with patch("rdf_vocabulary_conformance.context.pyshacl.validate") as evaluate:
+        with patch("rdf_vocabulary_conformance.context.Context.shacl") as evaluate:
             result = self.result("authored", shape=shape)
             evaluate.assert_not_called()
         self.assertFalse(result["ok"])
