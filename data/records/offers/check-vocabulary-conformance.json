@@ -1,0 +1,315 @@
+{
+  "name": "Vocabulary Conformance Check",
+  "gateway": "rdf-vocabulary-conformance",
+  "gatewayPackageName": "@red-cup-engineering/rdf-vocabulary-conformance-service",
+  "section": "lib/emsenn/services/561-group/services/engineering-services-section/services/computer-engineering-services-section/services/computer-data-engineering-services-section/services/computer-content-engineering-services-section/services/computer-serialized-content-engineering-services-section/services/computer-triplet-serialized-content-engineering-services-section/services/rdf-vocabulary-conformance-service",
+  "operation": "check-vocabulary-conformance",
+  "origin": "https://market.561.group",
+  "route": "/v1/check-vocabulary-conformance",
+  "method": "POST",
+  "price": "$0.01",
+  "category": "data",
+  "output": {
+    "schema": {
+      "type": "object",
+      "required": [
+        "ok"
+      ],
+      "properties": {
+        "ok": {
+          "type": "boolean",
+          "description": "True when every check and every shape test passed. A refusal has ok false and a refusal member."
+        },
+        "summary": {
+          "type": "object"
+        },
+        "checks": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": [
+              "id",
+              "ok",
+              "detail"
+            ]
+          }
+        },
+        "shapeTests": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": [
+              "id",
+              "ok",
+              "expect",
+              "actual"
+            ]
+          }
+        },
+        "inputs": {
+          "type": "object",
+          "description": "sha256 of the configuration and of every file read."
+        },
+        "refusal": {
+          "type": "object"
+        }
+      }
+    },
+    "example": {
+      "checks": [
+        {
+          "detail": "2 RDF files match onto/**/*.ttl",
+          "failures": [],
+          "id": "parsing.rdf-files-parse",
+          "ok": true
+        },
+        {
+          "detail": "header of https://example.org/v",
+          "failures": [],
+          "id": "rooting.ontology-metadata",
+          "ok": true
+        },
+        {
+          "detail": "3 terms declared in https://example.org/v#",
+          "failures": [],
+          "id": "rooting.terms-documented",
+          "ok": true
+        },
+        {
+          "detail": "scheme https://example.org/v#terms has 2 top concepts",
+          "failures": [],
+          "id": "skos.scheme",
+          "ok": true
+        },
+        {
+          "detail": "2 concepts",
+          "failures": [],
+          "id": "skos.concepts-complete",
+          "ok": true
+        },
+        {
+          "detail": "0 collections",
+          "failures": [],
+          "id": "skos.collections",
+          "ok": true
+        },
+        {
+          "detail": "skos:Concept and skos:Collection are disjoint",
+          "failures": [],
+          "id": "skos.concept-collection-disjoint",
+          "ok": true
+        },
+        {
+          "detail": "0 skos:related edges",
+          "failures": [],
+          "id": "skos.related-symmetric",
+          "ok": true
+        },
+        {
+          "detail": "1 closed sets",
+          "failures": [],
+          "id": "closed-sets.enumerations-match-instances",
+          "ok": true
+        },
+        {
+          "detail": "1 record files, 1 declared kinds",
+          "failures": [],
+          "id": "records.kinds-declared",
+          "ok": true
+        },
+        {
+          "detail": "onto/context.jsonld processes",
+          "failures": [],
+          "id": "records.context-processes",
+          "ok": true
+        },
+        {
+          "detail": "1 records converted through onto/context.jsonld",
+          "failures": [],
+          "id": "records.convert-with-no-unmapped-key",
+          "ok": true
+        },
+        {
+          "detail": "1 records judged by onto/shapes.ttl",
+          "failures": [],
+          "id": "records.conform-to-shapes",
+          "ok": true
+        }
+      ],
+      "inputs": {
+        "config": "d80348136817d0ca60b8132624f25d3e2671d3b12ce2bcbbae6a17c33a34f1c5",
+        "files": [
+          {
+            "path": "data/a.json",
+            "sha256": "b299e363246714d9644270e35840236adc667a8fd2376d8a94fdb752abbe89a7"
+          },
+          {
+            "path": "onto/context.jsonld",
+            "sha256": "9f7d0be0d30a4c68aeb1526a8b5f776d3f418b3fcd217e3b09db3d10f58a310f"
+          },
+          {
+            "path": "onto/shapes.ttl",
+            "sha256": "d190be2caf1a3c04a27277d8b4f7fe72ed197af40fc4ff8110d917242ce42344"
+          },
+          {
+            "path": "onto/vocab.ttl",
+            "sha256": "11d1e284dbcc5dbf07746c0ee085da74ac619e88b29895f25182c46bc517a45f"
+          }
+        ]
+      },
+      "ok": true,
+      "shapeTests": [
+        {
+          "actual": "conforms",
+          "detail": "no unmapped term, SHACL conforms",
+          "expect": "conforms",
+          "id": "unmodified-a",
+          "ok": true,
+          "reason": "The untouched record passes.",
+          "record": "data/a.json",
+          "via": "any"
+        },
+        {
+          "actual": "violates",
+          "detail": "1 SHACL result(s): MinInclusiveConstraintComponent path=https://example.org/v#count focus=https://example.org/record/a",
+          "expect": "violates",
+          "id": "negative-count",
+          "ok": true,
+          "reason": "A count may not be negative.",
+          "record": "data/a.json",
+          "via": "shacl"
+        }
+      ],
+      "summary": {
+        "checks": 13,
+        "checksFailed": 0,
+        "shapeTests": 2,
+        "shapeTestsFailed": 0
+      },
+      "tool": "rdf-vocabulary-conformance-service",
+      "version": "0.1.0"
+    }
+  },
+  "framings": [
+    {
+      "key": "default",
+      "title": "Vocabulary Conformance Check",
+      "description": "Validate your ontology and data: check an RDF/OWL/SKOS vocabulary and its JSON records against a data-only configuration. Parsing, rooting, SKOS completeness, closed sets, JSON-LD conversion with no unmapped key, SHACL conformance, and JSON Patch negative tests that prove your shapes bite. Deterministic report. Python runtime.",
+      "tags": [
+        "ontology",
+        "rdf",
+        "skos",
+        "shacl",
+        "validation"
+      ],
+      "serviceName": "check-vocabulary-conformance"
+    }
+  ],
+  "ledgerAccount": "Income:Sales:X402:Vocabulary-conformance",
+  "markets": [
+    "x402-bazaar",
+    "402index",
+    "house-capability-market",
+    "house-seller-catalog"
+  ],
+  "seller": {
+    "enterprise": "engineering",
+    "entity": "561-group-llc",
+    "record": {
+      "path": "lib/emsenn/services/561-group/services/engineering-services-section/lib/agency/enterprises/engineering.json",
+      "sha256": "6af4ed9d1e4612b0383267e7ffe0ad028c52164ee3c5136110d434384a29c39f"
+    }
+  },
+  "resources": [
+    "Python runtime (rdflib, pyshacl, PyLD): served by the Python package, not a Node or edge function; no compute binding is declared",
+    "CPU: RDF parsing, JSON-LD conversion and SHACL validation per request"
+  ],
+  "saleStatus": "held",
+  "requestMaxBytes": 1048576,
+  "bodyExample": {
+    "config": {
+      "formatVersion": 1,
+      "parse": {
+        "rdf": {
+          "glob": "onto/**/*.ttl",
+          "minimum": 2
+        }
+      },
+      "vocabulary": {
+        "files": [
+          "onto/vocab.ttl"
+        ],
+        "namespace": "https://example.org/v#",
+        "declaredTermsAtLeast": 3,
+        "ontology": {
+          "iri": "https://example.org/v"
+        }
+      },
+      "skos": {
+        "scheme": "https://example.org/v#terms",
+        "conceptCount": 2
+      },
+      "closedSets": [
+        {
+          "class": "https://example.org/v#Status",
+          "size": 2
+        }
+      ],
+      "records": {
+        "glob": "data/*.json",
+        "context": "onto/context.jsonld",
+        "shapes": "onto/shapes.ttl",
+        "baseIri": "https://example.org/record/",
+        "unmappedPrefix": "https://example.org/field#",
+        "kinds": {
+          "data/a.json": "https://example.org/v#Doc"
+        }
+      },
+      "shapeTests": [
+        {
+          "id": "unmodified-a",
+          "record": "data/a.json",
+          "mutation": [],
+          "expect": "conforms",
+          "reason": "The untouched record passes."
+        },
+        {
+          "id": "negative-count",
+          "record": "data/a.json",
+          "mutation": [
+            {
+              "op": "replace",
+              "path": "/count",
+              "value": -1
+            }
+          ],
+          "expect": "violates",
+          "reason": "A count may not be negative."
+        }
+      ]
+    },
+    "files": {
+      "onto/vocab.ttl": "@prefix : <https://example.org/v#> .\n@prefix h: <https://example.org/house/> .\n@prefix owl: <http://www.w3.org/2002/07/owl#> .\n@prefix rdfs: <http://www.w3.org/2000/01/rdf-schema#> .\n@prefix skos: <http://www.w3.org/2004/02/skos/core#> .\n@prefix dcterms: <http://purl.org/dc/terms/> .\n@prefix prov: <http://www.w3.org/ns/prov#> .\n@prefix sh: <http://www.w3.org/ns/shacl#> .\n@prefix xsd: <http://www.w3.org/2001/XMLSchema#> .\n\n<https://example.org/v> a owl:Ontology ; owl:versionInfo \"0.1.0\" .\n:Doc a owl:Class ; rdfs:label \"Doc\" ; rdfs:comment \"A document record.\" .\n:count a owl:DatatypeProperty ; rdfs:comment \"How many.\" .\n:Status a owl:Class ; rdfs:label \"Status\" ; owl:equivalentClass [ a owl:Class ; owl:oneOf ( :open :closed ) ] .\n:open a :Status ; skos:prefLabel \"open\" ; skos:definition \"Still under discussion.\" ; skos:inScheme :terms .\n:closed a :Status ; skos:prefLabel \"closed\" ; skos:definition \"No longer under discussion.\" ; skos:inScheme :terms .\n:terms a skos:ConceptScheme ; skos:hasTopConcept :open , :closed .\n:open a skos:Concept . :closed a skos:Concept .\n",
+      "onto/context.jsonld": "{\n  \"@context\": {\n    \"@version\": 1.1,\n    \"@vocab\": \"https://example.org/field#\",\n    \"ex\": \"https://example.org/v#\",\n    \"xsd\": \"http://www.w3.org/2001/XMLSchema#\",\n    \"kind\": \"@type\",\n    \"Doc\": \"ex:Doc\",\n    \"Item\": \"ex:Item\",\n    \"count\": {\n      \"@id\": \"ex:count\",\n      \"@type\": \"xsd:integer\"\n    },\n    \"items\": \"ex:hasItem\"\n  }\n}",
+      "onto/shapes.ttl": "@prefix : <https://example.org/v#> .\n@prefix h: <https://example.org/house/> .\n@prefix owl: <http://www.w3.org/2002/07/owl#> .\n@prefix rdfs: <http://www.w3.org/2000/01/rdf-schema#> .\n@prefix skos: <http://www.w3.org/2004/02/skos/core#> .\n@prefix dcterms: <http://purl.org/dc/terms/> .\n@prefix prov: <http://www.w3.org/ns/prov#> .\n@prefix sh: <http://www.w3.org/ns/shacl#> .\n@prefix xsd: <http://www.w3.org/2001/XMLSchema#> .\n\n<https://example.org/shapes/DocShape> a sh:NodeShape ; sh:targetClass :Doc ;\n  sh:property [ sh:path :count ; sh:minCount 1 ; sh:datatype xsd:integer ; sh:minInclusive 0 ] .\n",
+      "data/a.json": "{\n  \"kind\": \"Doc\",\n  \"count\": 3\n}"
+    }
+  },
+  "bodySchema": {
+    "type": "object",
+    "required": [
+      "config",
+      "files"
+    ],
+    "properties": {
+      "config": {
+        "type": "object",
+        "description": "A conformance configuration (conformance.schema.json, formatVersion 1). Paths are relative; globs match keys of files."
+      },
+      "files": {
+        "type": "object",
+        "description": "Repository-relative path to file text (UTF-8) or {base64}. Supply every file the configuration names."
+      }
+    }
+  }
+}

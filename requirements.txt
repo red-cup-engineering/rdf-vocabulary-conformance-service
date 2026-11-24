@@ -1,0 +1,2 @@
+# Full development and validation install from this checkout; pins live in pyproject.toml.
+.[conformance]
